@@ -93,16 +93,15 @@ class MandalaGenerator {
     let svgElements: string[] = [];
     let regionId = 0;
 
-    // Choose a random design pattern based on your sample images
-    const designTypes = [
-      'concentric_circles',
-      'nested_squares', 
-      'triangle_in_circle',
-      'star_pattern',
-      'hexagon_center',
-      'mixed_shapes',
-      'diamond_pattern'
-    ];
+    // Choose design patterns based on difficulty
+    let designTypes: string[];
+    if (difficulty === 'beginner') {
+      designTypes = ['concentric_circles', 'nested_squares', 'triangle_in_circle'];
+    } else if (difficulty === 'intermediate') {
+      designTypes = ['concentric_circles', 'nested_squares', 'triangle_in_circle', 'star_pattern', 'hexagon_center'];
+    } else {
+      designTypes = ['petal_flower', 'complex_star', 'layered_mandala', 'geometric_flower'];
+    }
     
     const designType = this.rng.choice(designTypes);
     
@@ -121,6 +120,18 @@ class MandalaGenerator {
         break;
       case 'hexagon_center':
         this.generateHexagonCenter(center, canvasSize, palette, regions, svgElements, regionId);
+        break;
+      case 'petal_flower':
+        this.generatePetalFlower(center, canvasSize, palette, regions, svgElements, regionId);
+        break;
+      case 'complex_star':
+        this.generateComplexStar(center, canvasSize, palette, regions, svgElements, regionId);
+        break;
+      case 'layered_mandala':
+        this.generateLayeredMandala(center, canvasSize, palette, regions, svgElements, regionId);
+        break;
+      case 'geometric_flower':
+        this.generateGeometricFlower(center, canvasSize, palette, regions, svgElements, regionId);
         break;
       case 'mixed_shapes':
         this.generateMixedShapes(center, canvasSize, palette, regions, svgElements, regionId);
@@ -141,8 +152,16 @@ class MandalaGenerator {
   private generateConcentricCircles(center: number, size: number, palette: string[], regions: RegionSpec[], svgElements: string[], startId: number) {
     const { difficulty } = this.settings;
     
-    // Simpler for beginners
-    const numCircles = difficulty === 'beginner' ? 2 : this.rng.randomInt(2, 4);
+    // Adjust complexity based on difficulty
+    let numCircles: number;
+    if (difficulty === 'beginner') {
+      numCircles = 2;
+    } else if (difficulty === 'intermediate') {
+      numCircles = this.rng.randomInt(2, 3);
+    } else {
+      numCircles = this.rng.randomInt(3, 4);
+    }
+    
     const maxRadius = center * 0.8;
     
     for (let i = 0; i < numCircles; i++) {
@@ -159,10 +178,14 @@ class MandalaGenerator {
       svgElements.push(`<circle id="${id}" cx="${center}" cy="${center}" r="${radius}" fill="${color}" stroke="#222" stroke-width="2"/>`);
     }
 
-    // Only add center shape for intermediate/advanced or occasionally for beginners
-    if (difficulty !== 'beginner' || this.rng.random() > 0.7) {
+    // Add center shape based on difficulty
+    const shouldAddCenter = difficulty === 'beginner' ? this.rng.random() > 0.7 : 
+                           difficulty === 'intermediate' ? this.rng.random() > 0.4 : 
+                           this.rng.random() > 0.2;
+                           
+    if (shouldAddCenter && numCircles < palette.length) {
       const centerSize = maxRadius * 0.2;
-      const centerColor = palette[(numCircles) % palette.length];
+      const centerColor = palette[numCircles % palette.length];
       const centerId = `region-${startId + numCircles}`;
       
       regions.push({ 
@@ -177,8 +200,16 @@ class MandalaGenerator {
   private generateNestedSquares(center: number, size: number, palette: string[], regions: RegionSpec[], svgElements: string[], startId: number) {
     const { difficulty } = this.settings;
     
-    // Simpler for beginners
-    const numSquares = difficulty === 'beginner' ? 2 : this.rng.randomInt(2, 4);
+    // Adjust complexity based on difficulty
+    let numSquares: number;
+    if (difficulty === 'beginner') {
+      numSquares = 2;
+    } else if (difficulty === 'intermediate') {
+      numSquares = this.rng.randomInt(2, 3);
+    } else {
+      numSquares = this.rng.randomInt(3, 4);
+    }
+    
     const maxSize = center * 1.4;
     
     for (let i = 0; i < numSquares; i++) {
@@ -196,8 +227,12 @@ class MandalaGenerator {
       svgElements.push(`<rect id="${id}" x="${center - half}" y="${center - half}" width="${squareSize}" height="${squareSize}" fill="${color}" stroke="#222" stroke-width="2"/>`);
     }
 
-    // Only add center element for intermediate/advanced
-    if (difficulty !== 'beginner') {
+    // Add center element based on difficulty
+    const shouldAddCenter = difficulty === 'beginner' ? false : 
+                           difficulty === 'intermediate' ? this.rng.random() > 0.5 : 
+                           this.rng.random() > 0.3;
+                           
+    if (shouldAddCenter && numSquares < palette.length) {
       const centerSize = maxSize * 0.15;
       const centerColor = palette[numSquares % palette.length];
       const centerId = `region-${startId + numSquares}`;
@@ -244,8 +279,12 @@ class MandalaGenerator {
     });
     svgElements.push(`<polygon id="${triangleId}" points="${x1},${y1} ${x2},${y2} ${x3},${y3}" fill="${triangleColor}" stroke="#222" stroke-width="2"/>`);
 
-    // Center circle only for intermediate/advanced, and only if enough colors
-    if (difficulty !== 'beginner' && palette.length > 2) {
+    // Center circle based on difficulty and available colors
+    const shouldAddCenter = difficulty === 'beginner' ? false : 
+                           difficulty === 'intermediate' ? this.rng.random() > 0.6 : 
+                           this.rng.random() > 0.4;
+                           
+    if (shouldAddCenter && palette.length > 2) {
       const centerRadius = triangleSize * 0.15;
       const centerColor = palette[2 % palette.length];
       const centerId = `region-${startId + 2}`;
@@ -260,9 +299,19 @@ class MandalaGenerator {
   }
 
   private generateStarPattern(center: number, size: number, palette: string[], regions: RegionSpec[], svgElements: string[], startId: number) {
+    const { difficulty } = this.settings;
     const outerRadius = center * 0.7;
     const innerRadius = outerRadius * 0.4;
-    const numPoints = this.rng.randomInt(5, 8);
+    
+    // Adjust star complexity based on difficulty
+    let numPoints: number;
+    if (difficulty === 'beginner') {
+      numPoints = 5;
+    } else if (difficulty === 'intermediate') {
+      numPoints = this.rng.randomInt(5, 6);
+    } else {
+      numPoints = this.rng.randomInt(6, 8);
+    }
     
     // Create star path
     let starPath = '';
@@ -285,17 +334,33 @@ class MandalaGenerator {
     regions.push({ id: starId, color: starColor, path: starPath });
     svgElements.push(`<path id="${starId}" d="${starPath}" fill="${starColor}" stroke="#222" stroke-width="2"/>`);
 
-    // Center circle
-    const centerRadius = innerRadius * 0.5;
-    const centerColor = palette[1 % palette.length];
-    const centerId = `region-${startId + 1}`;
-    
-    regions.push({ 
-      id: centerId, 
-      color: centerColor, 
-      path: `M ${center - centerRadius} ${center} A ${centerRadius} ${centerRadius} 0 1 1 ${center + centerRadius} ${center} A ${centerRadius} ${centerRadius} 0 1 1 ${center - centerRadius} ${center} Z`
-    });
-    svgElements.push(`<circle id="${centerId}" cx="${center}" cy="${center}" r="${centerRadius}" fill="${centerColor}" stroke="#222" stroke-width="2"/>`);
+    // Center circle with more colors for advanced
+    if (palette.length > 1) {
+      const centerRadius = innerRadius * (difficulty === 'advanced' ? 0.6 : 0.5);
+      const centerColor = palette[1 % palette.length];
+      const centerId = `region-${startId + 1}`;
+      
+      regions.push({ 
+        id: centerId, 
+        color: centerColor, 
+        path: `M ${center - centerRadius} ${center} A ${centerRadius} ${centerRadius} 0 1 1 ${center + centerRadius} ${center} A ${centerRadius} ${centerRadius} 0 1 1 ${center - centerRadius} ${center} Z`
+      });
+      svgElements.push(`<circle id="${centerId}" cx="${center}" cy="${center}" r="${centerRadius}" fill="${centerColor}" stroke="#222" stroke-width="2"/>`);
+    }
+
+    // Add additional elements for advanced difficulty
+    if (difficulty === 'advanced' && palette.length > 2) {
+      const smallRadius = innerRadius * 0.2;
+      const smallColor = palette[2 % palette.length];
+      const smallId = `region-${startId + 2}`;
+      
+      regions.push({ 
+        id: smallId, 
+        color: smallColor, 
+        path: `M ${center - smallRadius} ${center} A ${smallRadius} ${smallRadius} 0 1 1 ${center + smallRadius} ${center} A ${smallRadius} ${smallRadius} 0 1 1 ${center - smallRadius} ${center} Z`
+      });
+      svgElements.push(`<circle id="${smallId}" cx="${center}" cy="${center}" r="${smallRadius}" fill="${smallColor}" stroke="#222" stroke-width="2"/>`);
+    }
   }
 
   private generateHexagonCenter(center: number, size: number, palette: string[], regions: RegionSpec[], svgElements: string[], startId: number) {
@@ -442,6 +507,199 @@ class MandalaGenerator {
     });
     svgElements.push(`<circle id="${centerId}" cx="${center}" cy="${center}" r="${centerRadius}" fill="${centerColor}" stroke="#222" stroke-width="2"/>`);
   }
+
+  // New advanced pattern generators
+  private generatePetalFlower(center: number, size: number, palette: string[], regions: RegionSpec[], svgElements: string[], startId: number) {
+    const petalCount = Math.min(palette.length, 8);
+    const outerRadius = center * 0.8;
+    let regionIndex = 0;
+
+    // Create overlapping petals like in your sample
+    for (let i = 0; i < petalCount; i++) {
+      const angle = (i * 2 * Math.PI) / petalCount;
+      const petalColor = palette[i % palette.length];
+      const petalId = `region-${startId + regionIndex}`;
+
+      // Create petal shape (ellipse rotated)
+      const petalWidth = outerRadius * 0.4;
+      const petalHeight = outerRadius * 0.8;
+      const petalCenterX = center + (outerRadius * 0.3) * Math.cos(angle);
+      const petalCenterY = center + (outerRadius * 0.3) * Math.sin(angle);
+
+      // Create elliptical petal path
+      const petalPath = this.createEllipsePath(petalCenterX, petalCenterY, petalWidth, petalHeight, angle);
+      
+      regions.push({ id: petalId, color: petalColor, path: petalPath });
+      svgElements.push(`<path id="${petalId}" d="${petalPath}" fill="${petalColor}" stroke="#222" stroke-width="2"/>`);
+      regionIndex++;
+    }
+
+    // Center circle
+    if (regionIndex < palette.length) {
+      const centerRadius = outerRadius * 0.15;
+      const centerColor = palette[regionIndex % palette.length];
+      const centerId = `region-${startId + regionIndex}`;
+      
+      regions.push({ 
+        id: centerId, 
+        color: centerColor, 
+        path: `M ${center - centerRadius} ${center} A ${centerRadius} ${centerRadius} 0 1 1 ${center + centerRadius} ${center} A ${centerRadius} ${centerRadius} 0 1 1 ${center - centerRadius} ${center} Z`
+      });
+      svgElements.push(`<circle id="${centerId}" cx="${center}" cy="${center}" r="${centerRadius}" fill="${centerColor}" stroke="#222" stroke-width="2"/>`);
+    }
+  }
+
+  private generateComplexStar(center: number, size: number, palette: string[], regions: RegionSpec[], svgElements: string[], startId: number) {
+    const starPoints = Math.min(palette.length, 8);
+    const outerRadius = center * 0.8;
+    const innerRadius = outerRadius * 0.4;
+    let regionIndex = 0;
+
+    // Create star points as separate regions
+    for (let i = 0; i < starPoints; i++) {
+      const angle1 = (i * 2 * Math.PI) / starPoints - Math.PI / 2;
+      const angle2 = ((i + 1) * 2 * Math.PI) / starPoints - Math.PI / 2;
+      const midAngle = (angle1 + angle2) / 2;
+
+      const x1 = center + outerRadius * Math.cos(angle1);
+      const y1 = center + outerRadius * Math.sin(angle1);
+      const x2 = center + innerRadius * Math.cos(midAngle);
+      const y2 = center + innerRadius * Math.sin(midAngle);
+      const x3 = center + outerRadius * Math.cos(angle2);
+      const y3 = center + outerRadius * Math.sin(angle2);
+
+      const pointColor = palette[i % palette.length];
+      const pointId = `region-${startId + regionIndex}`;
+      const pointPath = `M ${center} ${center} L ${x1} ${y1} L ${x2} ${y2} L ${x3} ${y3} Z`;
+      
+      regions.push({ id: pointId, color: pointColor, path: pointPath });
+      svgElements.push(`<path id="${pointId}" d="${pointPath}" fill="${pointColor}" stroke="#222" stroke-width="2"/>`);
+      regionIndex++;
+    }
+
+    // Center circle if we have remaining colors
+    if (regionIndex < palette.length) {
+      const centerRadius = innerRadius * 0.4;
+      const centerColor = palette[regionIndex % palette.length];
+      const centerId = `region-${startId + regionIndex}`;
+      
+      regions.push({ 
+        id: centerId, 
+        color: centerColor, 
+        path: `M ${center - centerRadius} ${center} A ${centerRadius} ${centerRadius} 0 1 1 ${center + centerRadius} ${center} A ${centerRadius} ${centerRadius} 0 1 1 ${center - centerRadius} ${center} Z`
+      });
+      svgElements.push(`<circle id="${centerId}" cx="${center}" cy="${center}" r="${centerRadius}" fill="${centerColor}" stroke="#222" stroke-width="2"/>`);
+    }
+  }
+
+  private generateLayeredMandala(center: number, size: number, palette: string[], regions: RegionSpec[], svgElements: string[], startId: number) {
+    const layers = Math.min(palette.length, 5);
+    const maxRadius = center * 0.8;
+    let regionIndex = 0;
+
+    // Create multiple layers with different shapes
+    for (let layer = 0; layer < layers; layer++) {
+      const radius = maxRadius * (1 - layer / layers * 0.7);
+      const color = palette[layer % palette.length];
+      const id = `region-${startId + regionIndex}`;
+
+      if (layer % 2 === 0) {
+        // Circular layer
+        regions.push({ 
+          id, 
+          color, 
+          path: `M ${center - radius} ${center} A ${radius} ${radius} 0 1 1 ${center + radius} ${center} A ${radius} ${radius} 0 1 1 ${center - radius} ${center} Z`
+        });
+        svgElements.push(`<circle id="${id}" cx="${center}" cy="${center}" r="${radius}" fill="${color}" stroke="#222" stroke-width="2"/>`);
+      } else {
+        // Star layer
+        const points = 8;
+        const innerR = radius * 0.7;
+        let starPath = '';
+        
+        for (let i = 0; i < points * 2; i++) {
+          const angle = (i * Math.PI) / points;
+          const r = i % 2 === 0 ? radius : innerR;
+          const x = center + r * Math.cos(angle - Math.PI / 2);
+          const y = center + r * Math.sin(angle - Math.PI / 2);
+          
+          if (i === 0) {
+            starPath += `M ${x} ${y}`;
+          } else {
+            starPath += ` L ${x} ${y}`;
+          }
+        }
+        starPath += ' Z';
+        
+        regions.push({ id, color, path: starPath });
+        svgElements.push(`<path id="${id}" d="${starPath}" fill="${color}" stroke="#222" stroke-width="2"/>`);
+      }
+      regionIndex++;
+    }
+  }
+
+  private generateGeometricFlower(center: number, size: number, palette: string[], regions: RegionSpec[], svgElements: string[], startId: number) {
+    const petalCount = Math.min(palette.length, 6);
+    const radius = center * 0.8;
+    let regionIndex = 0;
+
+    // Background circle
+    if (regionIndex < palette.length) {
+      const bgColor = palette[regionIndex % palette.length];
+      const bgId = `region-${startId + regionIndex}`;
+      regions.push({ 
+        id: bgId, 
+        color: bgColor, 
+        path: `M ${center - radius} ${center} A ${radius} ${radius} 0 1 1 ${center + radius} ${center} A ${radius} ${radius} 0 1 1 ${center - radius} ${center} Z`
+      });
+      svgElements.push(`<circle id="${bgId}" cx="${center}" cy="${center}" r="${radius}" fill="${bgColor}" stroke="#222" stroke-width="2"/>`);
+      regionIndex++;
+    }
+
+    // Create geometric petals
+    for (let i = 0; i < petalCount - 1 && regionIndex < palette.length; i++) {
+      const angle = (i * 2 * Math.PI) / (petalCount - 1);
+      const petalColor = palette[regionIndex % palette.length];
+      const petalId = `region-${startId + regionIndex}`;
+
+      // Create diamond-shaped petal
+      const petalSize = radius * 0.4;
+      const petalCenterX = center + (radius * 0.5) * Math.cos(angle);
+      const petalCenterY = center + (radius * 0.5) * Math.sin(angle);
+
+      const cos = Math.cos(angle);
+      const sin = Math.sin(angle);
+      const halfSize = petalSize / 2;
+
+      const x1 = petalCenterX + halfSize * cos;
+      const y1 = petalCenterY + halfSize * sin;
+      const x2 = petalCenterX - halfSize * sin;
+      const y2 = petalCenterY + halfSize * cos;
+      const x3 = petalCenterX - halfSize * cos;
+      const y3 = petalCenterY - halfSize * sin;
+      const x4 = petalCenterX + halfSize * sin;
+      const y4 = petalCenterY - halfSize * cos;
+
+      const petalPath = `M ${x1} ${y1} L ${x2} ${y2} L ${x3} ${y3} L ${x4} ${y4} Z`;
+      
+      regions.push({ id: petalId, color: petalColor, path: petalPath });
+      svgElements.push(`<path id="${petalId}" d="${petalPath}" fill="${petalColor}" stroke="#222" stroke-width="2"/>`);
+      regionIndex++;
+    }
+  }
+
+  private createEllipsePath(cx: number, cy: number, rx: number, ry: number, rotation: number): string {
+    const cos = Math.cos(rotation);
+    const sin = Math.sin(rotation);
+    
+    // Calculate the four points of the ellipse
+    const x1 = cx + rx * cos;
+    const y1 = cy + rx * sin;
+    const x2 = cx - rx * cos;
+    const y2 = cy - rx * sin;
+    
+    return `M ${x1} ${y1} A ${rx} ${ry} ${rotation * 180 / Math.PI} 1 1 ${x2} ${y2} A ${rx} ${ry} ${rotation * 180 / Math.PI} 1 1 ${x1} ${y1} Z`;
+  }
 }
 
 // Main App Component
@@ -452,15 +710,15 @@ export default function MandalaMemoryTrainer() {
     roundCount: 10,
     showCountdown: true,
     difficulty: 'beginner',
-    colorCount: 4,
-    palette: PALETTES.Primary.slice(0, 4)
+    colorCount: 3,
+    palette: PALETTES.Primary.slice(0, 3)
   });
 
   // Mandala settings
   const [mandalaSettings, setMandalaSettings] = useState<MandalaSettings>({
     difficulty: 'beginner',
-    colorCount: 4,
-    palette: PALETTES.Primary.slice(0, 4),
+    colorCount: 3,
+    palette: PALETTES.Primary.slice(0, 3),
     radialSlices: 6,
     rings: 3,
     shapeComplexity: 1,
@@ -525,11 +783,19 @@ export default function MandalaMemoryTrainer() {
       ...prev,
       difficulty
     }));
+    // Force regeneration of mandala with new difficulty
+    setTimeout(() => {
+      setMandalaSettings(prev => ({ 
+        ...prev, 
+        seed: Date.now().toString() 
+      }));
+    }, 100);
   };
 
   // Update color count
   const updateColorCount = (count: number) => {
-    const palette = gameSettings.palette.slice(0, count);
+    // Always use Primary palette and slice to the requested count
+    const palette = PALETTES.Primary.slice(0, count);
     setMandalaSettings(prev => ({
       ...prev,
       colorCount: count,
@@ -540,6 +806,13 @@ export default function MandalaMemoryTrainer() {
       colorCount: count,
       palette
     }));
+    // Force regeneration of mandala with new colors
+    setTimeout(() => {
+      setMandalaSettings(prev => ({ 
+        ...prev, 
+        seed: Date.now().toString() 
+      }));
+    }, 100);
   };
 
   // Start game
@@ -640,39 +913,6 @@ export default function MandalaMemoryTrainer() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">Colors ({gameSettings.colorCount})</label>
-                <input
-                  type="range"
-                  min="4"
-                  max="8"
-                  value={gameSettings.colorCount}
-                  onChange={(e) => updateColorCount(parseInt(e.target.value))}
-                  className="w-full"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">Palette</label>
-                <select
-                  value={Object.keys(PALETTES).find(key => 
-                    PALETTES[key as keyof typeof PALETTES].slice(0, gameSettings.colorCount)
-                    .every((color, i) => color === gameSettings.palette[i])
-                  )}
-                  onChange={(e) => {
-                    const palette = PALETTES[e.target.value as keyof typeof PALETTES]
-                      .slice(0, gameSettings.colorCount);
-                    setGameSettings(prev => ({ ...prev, palette }));
-                    setMandalaSettings(prev => ({ ...prev, palette }));
-                  }}
-                  className="w-full p-2 border rounded-md"
-                >
-                  {Object.keys(PALETTES).map(name => (
-                    <option key={name} value={name}>{name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
                 <label className="block text-sm font-medium mb-2">Exposure Time</label>
                 <select
                   value={gameSettings.exposureTime}
@@ -711,134 +951,134 @@ export default function MandalaMemoryTrainer() {
             <div className="p-6">
               {currentMandala && (
                 <div className="flex flex-col items-center">
-                  {gameState.phase === 'idle' && (
-                    <div className="text-center">
-                      <p className="text-gray-600 mb-4">Ready to start memory training?</p>
-                      <p className="text-sm text-gray-500 mb-6">
-                        Look at the colored image, then use your crayons to color the outline!
-                      </p>
-                      <button
-                        onClick={startGame}
-                        className="bg-green-500 text-white py-3 px-6 rounded-md hover:bg-green-600 flex items-center"
-                      >
-                        <Play size={20} className="mr-2" />
-                        Start Memory Game
-                      </button>
-                    </div>
-                  )}
-
-                  {gameState.phase === 'showing' && (
-                    <div className="text-center">
-                      <div className="mb-4">
-                        <div className="text-3xl font-bold text-blue-600 mb-2">
-                          {Math.ceil(gameState.timeRemaining)}s
+                      {gameState.phase === 'idle' && (
+                        <div className="text-center">
+                          <p className="text-gray-600 mb-4">Ready to start memory training?</p>
+                          <p className="text-sm text-gray-500 mb-6">
+                            Look at the colored image, then use your crayons to color the outline!
+                          </p>
+                          <button
+                            onClick={startGame}
+                            className="bg-green-500 text-white py-3 px-6 rounded-md hover:bg-green-600 flex items-center"
+                          >
+                            <Play size={20} className="mr-2" />
+                            Start Memory Game
+                          </button>
                         </div>
-                        <div className="text-lg font-medium text-gray-700 mb-1">
-                          Remember this pattern!
-                        </div>
-                        <div className="text-sm text-gray-600">
-                          Round {gameState.round} of {gameSettings.roundCount}
-                        </div>
-                      </div>
-                      <div 
-                        dangerouslySetInnerHTML={{ __html: currentMandala.coloredSvg }}
-                      />
-                    </div>
-                  )}
+                      )}
 
-                  {gameState.phase === 'waiting' && (
-                    <div className="text-center">
-                      <div className="mb-6">
-                        <h3 className="text-xl font-semibold mb-3">Time's up!</h3>
-                        <p className="text-gray-600 mb-4">
-                          Now color the outline with your crayons from memory.
-                        </p>
-                        <p className="text-sm text-gray-500 mb-6">
-                          Click the button below when you want to see the original again.
-                        </p>
-                      </div>
-                      
-                      <div className="flex justify-center mb-6">
-                        <div 
-                          dangerouslySetInnerHTML={{ __html: currentMandala.outlineSvg }}
-                        />
-                      </div>
-
-                      <div className="space-y-3">
-                        <button
-                          onClick={() => setGameState(prev => ({ ...prev, phase: 'revealing' }))}
-                          className="bg-blue-500 text-white py-2 px-6 rounded-md hover:bg-blue-600 mr-4"
-                        >
-                          Show Original Image
-                        </button>
-                        <button
-                          onClick={nextRound}
-                          className="bg-green-500 text-white py-2 px-6 rounded-md hover:bg-green-600"
-                        >
-                          Next Round
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {gameState.phase === 'revealing' && (
-                    <div className="text-center">
-                      <div className="mb-4">
-                        <h3 className="text-xl font-semibold mb-3">Here's the original!</h3>
-                        <p className="text-sm text-gray-600 mb-4">
-                          Compare with your colored version
-                        </p>
-                      </div>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                        <div>
-                          <h4 className="font-medium mb-2">Original (Colored)</h4>
+                      {gameState.phase === 'showing' && (
+                        <div className="text-center">
+                          <div className="mb-4">
+                            <div className="text-3xl font-bold text-blue-600 mb-2">
+                              {Math.ceil(gameState.timeRemaining)}s
+                            </div>
+                            <div className="text-lg font-medium text-gray-700 mb-1">
+                              Remember this pattern!
+                            </div>
+                            <div className="text-sm text-gray-600">
+                              Round {gameState.round} of {gameSettings.roundCount}
+                            </div>
+                          </div>
                           <div 
                             dangerouslySetInnerHTML={{ __html: currentMandala.coloredSvg }}
                           />
                         </div>
-                        <div>
-                          <h4 className="font-medium mb-2">Your Outline</h4>
-                          <div 
-                            dangerouslySetInnerHTML={{ __html: currentMandala.outlineSvg }}
-                          />
+                      )}
+
+                      {gameState.phase === 'waiting' && (
+                        <div className="text-center">
+                          <div className="mb-6">
+                            <h3 className="text-xl font-semibold mb-3">Time's up!</h3>
+                            <p className="text-gray-600 mb-4">
+                              Now color the outline with your crayons from memory.
+                            </p>
+                            <p className="text-sm text-gray-500 mb-6">
+                              Click the button below when you want to see the original again.
+                            </p>
+                          </div>
+                          
+                          <div className="flex justify-center mb-6">
+                            <div 
+                              dangerouslySetInnerHTML={{ __html: currentMandala.outlineSvg }}
+                            />
+                          </div>
+
+                          <div className="space-y-3">
+                            <button
+                              onClick={() => setGameState(prev => ({ ...prev, phase: 'revealing' }))}
+                              className="bg-blue-500 text-white py-2 px-6 rounded-md hover:bg-blue-600 mr-4"
+                            >
+                              Show Original Image
+                            </button>
+                            <button
+                              onClick={nextRound}
+                              className="bg-green-500 text-white py-2 px-6 rounded-md hover:bg-green-600"
+                            >
+                              Next Round
+                            </button>
+                          </div>
                         </div>
-                      </div>
+                      )}
 
-                      <div className="space-y-3">
-                        <button
-                          onClick={() => setGameState(prev => ({ ...prev, phase: 'waiting' }))}
-                          className="bg-gray-500 text-white py-2 px-6 rounded-md hover:bg-gray-600 mr-4"
-                        >
-                          Hide Original
-                        </button>
-                        <button
-                          onClick={nextRound}
-                          className="bg-green-500 text-white py-2 px-6 rounded-md hover:bg-green-600"
-                        >
-                          Next Round
-                        </button>
-                      </div>
-                    </div>
-                  )}
+                      {gameState.phase === 'revealing' && (
+                        <div className="text-center">
+                          <div className="mb-4">
+                            <h3 className="text-xl font-semibold mb-3">Here's the original!</h3>
+                            <p className="text-sm text-gray-600 mb-4">
+                              Compare with your colored version
+                            </p>
+                          </div>
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                            <div>
+                              <h4 className="font-medium mb-2">Original (Colored)</h4>
+                              <div 
+                                dangerouslySetInnerHTML={{ __html: currentMandala.coloredSvg }}
+                              />
+                            </div>
+                            <div>
+                              <h4 className="font-medium mb-2">Your Outline</h4>
+                              <div 
+                                dangerouslySetInnerHTML={{ __html: currentMandala.outlineSvg }}
+                              />
+                            </div>
+                          </div>
 
-                  {gameState.phase === 'finished' && (
-                    <div className="text-center">
-                      <h3 className="text-2xl font-bold mb-4">Game Complete! 🎉</h3>
-                      <p className="text-lg text-gray-700 mb-6">
-                        Great job training your memory!
-                      </p>
-                      <div className="text-sm text-gray-600 mb-6">
-                        Completed {gameState.round} of {gameSettings.roundCount} rounds
-                      </div>
-                      <button
-                        onClick={() => setGameState(prev => ({ ...prev, phase: 'idle', round: 0 }))}
-                        className="bg-blue-500 text-white py-3 px-6 rounded-md hover:bg-blue-600"
-                      >
-                        Play Again
-                      </button>
-                    </div>
-                  )}
+                          <div className="space-y-3">
+                            <button
+                              onClick={() => setGameState(prev => ({ ...prev, phase: 'waiting' }))}
+                              className="bg-gray-500 text-white py-2 px-6 rounded-md hover:bg-gray-600 mr-4"
+                            >
+                              Hide Original
+                            </button>
+                            <button
+                              onClick={nextRound}
+                              className="bg-green-500 text-white py-2 px-6 rounded-md hover:bg-green-600"
+                            >
+                              Next Round
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {gameState.phase === 'finished' && (
+                        <div className="text-center">
+                          <h3 className="text-2xl font-bold mb-4">Game Complete! 🎉</h3>
+                          <p className="text-lg text-gray-700 mb-6">
+                            Great job training your memory!
+                          </p>
+                          <div className="text-sm text-gray-600 mb-6">
+                            Completed {gameSettings.roundCount} rounds
+                          </div>
+                          <button
+                            onClick={() => setGameState(prev => ({ ...prev, phase: 'idle', round: 0 }))}
+                            className="bg-blue-500 text-white py-3 px-6 rounded-md hover:bg-blue-600"
+                          >
+                            Play Again
+                          </button>
+                        </div>
+                      )}
                 </div>
               )}
             </div>
