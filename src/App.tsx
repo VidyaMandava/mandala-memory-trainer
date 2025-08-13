@@ -60,7 +60,7 @@ type DrawFn = (
   complexity: number
 ) => number;
 
-// Pattern Generators
+// Pattern Generators - Much More Variety!
 const concentricCircles: DrawFn = (c, s, p, regions, svg, id, rng, complexity) => {
   const rings = 2 + complexity;
   const maxR = s * 0.4;
@@ -78,13 +78,66 @@ const concentricCircles: DrawFn = (c, s, p, regions, svg, id, rng, complexity) =
   return id + rings;
 };
 
-const radialPolygons: DrawFn = (c, s, p, regions, svg, id, rng, complexity) => {
-  const layers = 1 + Math.ceil(complexity / 2);
+const concentricSquares: DrawFn = (c, s, p, regions, svg, id, rng, complexity) => {
+  const squares = 2 + complexity;
+  const maxSize = s * 0.7;
+  for (let i = 0; i < squares; i++) {
+    const size = maxSize * (1 - i / squares);
+    const half = size / 2;
+    const color = p[i % p.length];
+    const regId = `region-${id + i}`;
+    regions.push({
+      id: regId,
+      color,
+      path: `M ${c - half} ${c - half} L ${c + half} ${c - half} L ${c + half} ${c + half} L ${c - half} ${c + half} Z`
+    });
+    svg.push(`<rect id="${regId}" x="${c - half}" y="${c - half}" width="${size}" height="${size}" fill="${color}" stroke="#222" stroke-width="2"/>`);
+  }
+  return id + squares;
+};
+
+const trianglePattern: DrawFn = (c, s, p, regions, svg, id, rng, complexity) => {
+  const layers = 1 + complexity;
+  const maxR = s * 0.4;
+  for (let layer = 0; layer < layers; layer++) {
+    const r = maxR * (1 - layer / (layers + 1));
+    const color = p[layer % p.length];
+    const regId = `region-${layer + id}`;
+    const height = r * Math.sqrt(3) / 2;
+    const x1 = c, y1 = c - height / 2;
+    const x2 = c - r / 2, y2 = c + height / 2;
+    const x3 = c + r / 2, y3 = c + height / 2;
+    regions.push({
+      id: regId,
+      color,
+      path: `M ${x1} ${y1} L ${x2} ${y2} L ${x3} ${y3} Z`
+    });
+    svg.push(`<polygon id="${regId}" points="${x1},${y1} ${x2},${y2} ${x3},${y3}" fill="${color}" stroke="#222" stroke-width="2"/>`);
+  }
+  return id + layers;
+};
+
+const diamondPattern: DrawFn = (c, s, p, regions, svg, id, rng, complexity) => {
+  const diamonds = 2 + complexity;
+  const maxR = s * 0.4;
+  for (let i = 0; i < diamonds; i++) {
+    const r = maxR * (1 - i / diamonds);
+    const color = p[i % p.length];
+    const regId = `region-${id + i}`;
+    const path = `M ${c} ${c - r} L ${c + r} ${c} L ${c} ${c + r} L ${c - r} ${c} Z`;
+    regions.push({ id: regId, color, path });
+    svg.push(`<path id="${regId}" d="${path}" fill="${color}" stroke="#222" stroke-width="2"/>`);
+  }
+  return id + diamonds;
+};
+
+const starPattern: DrawFn = (c, s, p, regions, svg, id, rng, complexity) => {
+  const layers = 1 + Math.ceil(complexity / 3);
   const maxR = s * 0.4;
   for (let layer = 0; layer < layers; layer++) {
     const rOuter = maxR * (1 - layer / (layers + 0.5));
-    const rInner = rOuter * 0.5;
-    const points = 4 + complexity + layer;
+    const rInner = rOuter * 0.4;
+    const points = 5 + complexity + layer;
     const color = p[layer % p.length];
     const regId = `region-${id + layer}`;
     let path = '';
@@ -102,33 +155,16 @@ const radialPolygons: DrawFn = (c, s, p, regions, svg, id, rng, complexity) => {
   return id + layers;
 };
 
-const petalFlower: DrawFn = (c, s, p, regions, svg, id, rng, complexity) => {
-  const petals = 4 + complexity;
-  const rOuter = s * 0.4;
-  const rPetal = rOuter * 0.5;
-  for (let i = 0; i < petals; i++) {
-    const ang = (i * 2 * Math.PI) / petals;
-    const px = c + rOuter * Math.cos(ang);
-    const py = c + rOuter * Math.sin(ang);
-    const regId = `region-${id + i}`;
-    const path = `M ${px} ${py} a ${rPetal} ${rPetal * 0.6} ${ang * 180 / Math.PI} 1 1 ${-2 * rPetal * Math.cos(ang)} ${-2 * rPetal * Math.sin(ang)} Z`;
-    regions.push({ id: regId, color: p[i % p.length], path });
-    svg.push(`<path id="${regId}" d="${path}" fill="${p[i % p.length]}" stroke="#222" stroke-width="2"/>`);
-  }
-  return id + petals;
-};
-
-const geometricShapes: DrawFn = (c, s, p, regions, svg, id, rng, complexity) => {
-  const shapes = 2 + complexity;
+const hexagonPattern: DrawFn = (c, s, p, regions, svg, id, rng, complexity) => {
+  const hexagons = 2 + complexity;
   const maxR = s * 0.4;
-  for (let i = 0; i < shapes; i++) {
-    const r = maxR * (1 - i / (shapes + 1));
-    const sides = 3 + (complexity + i) % 5; // 3-8 sides
+  for (let i = 0; i < hexagons; i++) {
+    const r = maxR * (1 - i / hexagons);
     const color = p[i % p.length];
     const regId = `region-${id + i}`;
     let path = '';
-    for (let j = 0; j < sides; j++) {
-      const ang = (j * 2 * Math.PI) / sides - Math.PI / 2;
+    for (let j = 0; j < 6; j++) {
+      const ang = (j * Math.PI) / 3;
       const x = c + r * Math.cos(ang);
       const y = c + r * Math.sin(ang);
       path += j === 0 ? `M ${x} ${y}` : ` L ${x} ${y}`;
@@ -137,22 +173,129 @@ const geometricShapes: DrawFn = (c, s, p, regions, svg, id, rng, complexity) => 
     regions.push({ id: regId, color, path });
     svg.push(`<path id="${regId}" d="${path}" fill="${color}" stroke="#222" stroke-width="2"/>`);
   }
-  return id + shapes;
+  return id + hexagons;
 };
 
-// Difficulty Configuration
+const petalFlower: DrawFn = (c, s, p, regions, svg, id, rng, complexity) => {
+  const petals = 6 + complexity * 2;
+  const rOuter = s * 0.35;
+  const rPetal = rOuter * 0.6;
+  for (let i = 0; i < petals; i++) {
+    const ang = (i * 2 * Math.PI) / petals;
+    const px = c + rOuter * 0.7 * Math.cos(ang);
+    const py = c + rOuter * 0.7 * Math.sin(ang);
+    const regId = `region-${id + i}`;
+    const path = `M ${px} ${py} a ${rPetal} ${rPetal * 0.8} ${ang * 180 / Math.PI} 1 1 ${-rPetal * Math.cos(ang)} ${-rPetal * Math.sin(ang)} Z`;
+    regions.push({ id: regId, color: p[i % p.length], path });
+    svg.push(`<path id="${regId}" d="${path}" fill="${p[i % p.length]}" stroke="#222" stroke-width="2"/>`);
+  }
+  return id + petals;
+};
+
+const spiralPattern: DrawFn = (c, s, p, regions, svg, id, rng, complexity) => {
+  const arms = 3 + complexity;
+  const maxR = s * 0.4;
+  for (let arm = 0; arm < arms; arm++) {
+    const baseAngle = (arm * 2 * Math.PI) / arms;
+    const color = p[arm % p.length];
+    const regId = `region-${id + arm}`;
+    let path = `M ${c} ${c}`;
+    for (let t = 0; t <= Math.PI * 2; t += 0.2) {
+      const r = (maxR * t) / (Math.PI * 2);
+      const ang = baseAngle + t;
+      const x = c + r * Math.cos(ang);
+      const y = c + r * Math.sin(ang);
+      path += ` L ${x} ${y}`;
+    }
+    path += ' Z';
+    regions.push({ id: regId, color, path });
+    svg.push(`<path id="${regId}" d="${path}" fill="${color}" stroke="#222" stroke-width="2"/>`);
+  }
+  return id + arms;
+};
+
+const radialSegments: DrawFn = (c, s, p, regions, svg, id, rng, complexity) => {
+  const segments = 6 + complexity * 2;
+  const maxR = s * 0.4;
+  for (let i = 0; i < segments; i++) {
+    const ang1 = (i * 2 * Math.PI) / segments;
+    const ang2 = ((i + 1) * 2 * Math.PI) / segments;
+    const color = p[i % p.length];
+    const regId = `region-${id + i}`;
+    const x1 = c + maxR * Math.cos(ang1);
+    const y1 = c + maxR * Math.sin(ang1);
+    const x2 = c + maxR * Math.cos(ang2);
+    const y2 = c + maxR * Math.sin(ang2);
+    const path = `M ${c} ${c} L ${x1} ${y1} A ${maxR} ${maxR} 0 0 1 ${x2} ${y2} Z`;
+    regions.push({ id: regId, color, path });
+    svg.push(`<path id="${regId}" d="${path}" fill="${color}" stroke="#222" stroke-width="2"/>`);
+  }
+  return id + segments;
+};
+
+const wavePattern: DrawFn = (c, s, p, regions, svg, id, rng, complexity) => {
+  const waves = 4 + complexity;
+  const maxR = s * 0.4;
+  for (let w = 0; w < waves; w++) {
+    const r = maxR * (1 - w / (waves + 1));
+    const color = p[w % p.length];
+    const regId = `region-${id + w}`;
+    const amplitude = r * 0.2;
+    const frequency = 8 + complexity * 2;
+    let path = '';
+    const points = frequency * 4;
+    for (let i = 0; i <= points; i++) {
+      const ang = (i * 2 * Math.PI) / points;
+      const waveR = r + amplitude * Math.sin(ang * frequency);
+      const x = c + waveR * Math.cos(ang);
+      const y = c + waveR * Math.sin(ang);
+      path += i === 0 ? `M ${x} ${y}` : ` L ${x} ${y}`;
+    }
+    path += ' Z';
+    regions.push({ id: regId, color, path });
+    svg.push(`<path id="${regId}" d="${path}" fill="${color}" stroke="#222" stroke-width="2"/>`);
+  }
+  return id + waves;
+};
+
+const crossPattern: DrawFn = (c, s, p, regions, svg, id, rng, complexity) => {
+  const layers = 2 + complexity;
+  const maxSize = s * 0.6;
+  for (let i = 0; i < layers; i++) {
+    const size = maxSize * (1 - i / layers);
+    const thickness = size * 0.3;
+    const color = p[i % p.length];
+    const regId = `region-${id + i}`;
+    const half = size / 2;
+    const thickHalf = thickness / 2;
+    const path = `M ${c - thickHalf} ${c - half} L ${c + thickHalf} ${c - half} L ${c + thickHalf} ${c - thickHalf} L ${c + half} ${c - thickHalf} L ${c + half} ${c + thickHalf} L ${c + thickHalf} ${c + thickHalf} L ${c + thickHalf} ${c + half} L ${c - thickHalf} ${c + half} L ${c - thickHalf} ${c + thickHalf} L ${c - half} ${c + thickHalf} L ${c - half} ${c - thickHalf} L ${c - thickHalf} ${c - thickHalf} Z`;
+    regions.push({ id: regId, color, path });
+    svg.push(`<path id="${regId}" d="${path}" fill="${color}" stroke="#222" stroke-width="2"/>`);
+  }
+  return id + layers;
+};
+
+// Enhanced Color Palettes with Green, Orange, Pink
+const PALETTES = {
+  Primary: ['#E53935', '#1E88E5', '#FDD835', '#43A047', '#FF5722', '#E91E63', '#9C27B0', '#FF9800'],
+  Vibrant: ['#FF4444', '#44FF44', '#4444FF', '#FFAA00', '#FF44AA', '#44AAFF', '#AAFF44', '#AA44FF'],
+  Pastel: ['#FFB3BA', '#BAFFC9', '#BAE1FF', '#FFFFBA', '#FFDFBA', '#E0BBE4', '#D4F1F4', '#B4E7CE'],
+  Bright: ['#FF0000', '#00FF00', '#0000FF', '#FF8000', '#FF0080', '#8000FF', '#00FF80', '#80FF00']
+};
+
+// Difficulty Configuration with Many More Generators
 const difficultyMap: Record<MandalaSettings['difficulty'], { complexityRange: [number, number]; generators: DrawFn[] }> = {
   beginner: {
-    complexityRange: [1, 3],
-    generators: [concentricCircles, geometricShapes],
+    complexityRange: [1, 2],
+    generators: [concentricCircles, concentricSquares, trianglePattern, diamondPattern, hexagonPattern, crossPattern],
   },
   intermediate: {
-    complexityRange: [3, 6],
-    generators: [concentricCircles, radialPolygons, petalFlower, geometricShapes],
+    complexityRange: [2, 4],
+    generators: [concentricCircles, concentricSquares, trianglePattern, diamondPattern, starPattern, hexagonPattern, petalFlower, radialSegments, crossPattern],
   },
   advanced: {
-    complexityRange: [6, 10],
-    generators: [concentricCircles, radialPolygons, petalFlower, geometricShapes],
+    complexityRange: [4, 6],
+    generators: [concentricCircles, concentricSquares, trianglePattern, diamondPattern, starPattern, hexagonPattern, petalFlower, spiralPattern, radialSegments, wavePattern, crossPattern],
   },
 };
 
@@ -173,7 +316,10 @@ class MandalaGenerator {
     const generator = this.rng.choice(cfg.generators);
     const complexity = this.rng.int(cfg.complexityRange[0], cfg.complexityRange[1]);
 
-    generator(center, canvasSize, palette, regions, svgParts, 0, this.rng, complexity);
+    // Shuffle palette for more variety
+    const shuffledPalette = [...palette].sort(() => this.rng.random() - 0.5);
+
+    generator(center, canvasSize, shuffledPalette, regions, svgParts, 0, this.rng, complexity);
 
     const coloredSvg = `<svg width="${canvasSize}" height="${canvasSize}" viewBox="0 0 ${canvasSize} ${canvasSize}" xmlns="http://www.w3.org/2000/svg">\n${svgParts.join('\n')}\n</svg>`;
     const outlineSvg = coloredSvg.replace(/fill="[^"]*"/g, 'fill="none"').replace(/stroke="#222"/g, 'stroke="#000"');
@@ -182,30 +328,22 @@ class MandalaGenerator {
   }
 }
 
-// Palettes
-const PALETTES = {
-  Primary: ['#E53935', '#1E88E5', '#FDD835', '#43A047', '#8E24AA'],
-  Bold: ['#FF5722', '#03A9F4', '#FFC107', '#4CAF50', '#673AB7', '#FFEB3B'],
-  Pastel: ['#F48FB1', '#81D4FA', '#FFF59D', '#A5D6A7', '#CE93D8'],
-  HighContrast: ['#D32F2F', '#1976D2', '#FBC02D', '#388E3C', '#000000', '#FFFFFF']
-};
-
 // Main App Component
 export default function MandalaMemoryTrainer() {
-  // Game settings
+  // Game settings with enhanced palette
   const [gameSettings, setGameSettings] = useState<GameSettings>({
     exposureTime: 15,
     roundCount: 10,
     showCountdown: true,
     difficulty: 'beginner',
-    colorCount: 3,
-    palette: PALETTES.Primary.slice(0, 3)
+    colorCount: 6,
+    palette: PALETTES.Primary.slice(0, 6)
   });
 
-  // Mandala settings
+  // Mandala settings with enhanced palette
   const [mandalaSettings, setMandalaSettings] = useState<MandalaSettings>({
     difficulty: 'beginner',
-    palette: PALETTES.Primary.slice(0, 3),
+    palette: PALETTES.Primary.slice(0, 6),
     seed: Date.now().toString(),
     canvasSize: 400
   });
@@ -242,6 +380,16 @@ export default function MandalaMemoryTrainer() {
   const updateDifficulty = (difficulty: 'beginner' | 'intermediate' | 'advanced') => {
     setMandalaSettings(prev => ({ ...prev, difficulty }));
     setGameSettings(prev => ({ ...prev, difficulty }));
+    setTimeout(() => {
+      setMandalaSettings(prev => ({ ...prev, seed: Date.now().toString() }));
+    }, 100);
+  };
+
+  // Update color palette
+  const updatePalette = (paletteName: keyof typeof PALETTES) => {
+    const newPalette = PALETTES[paletteName].slice(0, gameSettings.colorCount);
+    setMandalaSettings(prev => ({ ...prev, palette: newPalette }));
+    setGameSettings(prev => ({ ...prev, palette: newPalette }));
     setTimeout(() => {
       setMandalaSettings(prev => ({ ...prev, seed: Date.now().toString() }));
     }, 100);
@@ -341,6 +489,24 @@ export default function MandalaMemoryTrainer() {
               </div>
 
               <div>
+                <label className="block text-sm font-medium mb-2">Color Palette</label>
+                <select
+                  value={Object.keys(PALETTES).find(key => 
+                    PALETTES[key as keyof typeof PALETTES].slice(0, gameSettings.colorCount).every((color, idx) => 
+                      gameSettings.palette[idx] === color
+                    )
+                  ) || 'Primary'}
+                  onChange={(e) => updatePalette(e.target.value as keyof typeof PALETTES)}
+                  className="w-full p-2 border rounded-md"
+                >
+                  <option value="Primary">Primary (Red, Blue, Yellow, Green, Orange, Pink)</option>
+                  <option value="Vibrant">Vibrant</option>
+                  <option value="Pastel">Pastel</option>
+                  <option value="Bright">Bright</option>
+                </select>
+              </div>
+
+              <div>
                 <label className="block text-sm font-medium mb-2">Exposure Time</label>
                 <select
                   value={gameSettings.exposureTime}
@@ -374,7 +540,7 @@ export default function MandalaMemoryTrainer() {
             </div>
           </div>
 
-          {/* Canvas Area */}
+          {/* Canvas Area - Same as before */}
           <div className="lg:col-span-2 bg-white rounded-lg shadow-lg">
             <div className="p-6">
               {currentMandala && (
