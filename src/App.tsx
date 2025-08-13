@@ -1,4 +1,7 @@
-/* ---------- utilities --------------------------------------------------- */
+import React, { useState, useEffect, useRef } from 'react';
+import { Timer, Palette, Play, Square, Download, RefreshCw, Settings } from 'lucide-react';
+
+// Seeded Random Generator
 class SeededRandom {
   private seed: number;
   constructor(seed: string) { this.seed = this.hash(seed); }
@@ -9,7 +12,6 @@ class SeededRandom {
     }
     return Math.abs(h);
   }
-  /** 0 ≤ x < 1 */
   random(): number {
     this.seed = (this.seed * 9301 + 49297) % 233280;
     return this.seed / 233280;
@@ -20,16 +22,33 @@ class SeededRandom {
   choice<T>(arr: T[]): T { return arr[this.int(0, arr.length - 1)]; }
 }
 
-/* ---------- public types ------------------------------------------------ */
-export interface RegionSpec { id: string; color: string; path: string; }
-export interface MandalaSettings {
-  seed: string;                 // RNG seed
-  canvasSize: number;           // SVG width / height
+// Types
+interface RegionSpec { id: string; color: string; path: string; }
+interface MandalaSettings {
+  seed: string;
+  canvasSize: number;
   difficulty: 'beginner' | 'intermediate' | 'advanced';
-  palette: string[];            // colors to cycle through
+  palette: string[];
 }
 
-/* ---------- internal helpers ------------------------------------------- */
+interface GameSettings {
+  exposureTime: number;
+  roundCount: number;
+  showCountdown: boolean;
+  difficulty: 'beginner' | 'intermediate' | 'advanced';
+  colorCount: number;
+  palette: string[];
+}
+
+interface GameState {
+  phase: 'idle' | 'showing' | 'waiting' | 'revealing' | 'finished';
+  round: number;
+  score: number;
+  currentSeed: string;
+  timeRemaining: number;
+}
+
+// Pattern generator function type
 type DrawFn = (
   cx: number,
   size: number,
@@ -39,16 +58,11 @@ type DrawFn = (
   idStart: number,
   rng: SeededRandom,
   complexity: number
-) => number;                    // returns next idStart
+) => number;
 
-/* ---------- pattern generators ----------------------------------------- */
-/* Each generator receives a “complexity” value that the factory tunes from
-   1 (beginner) … 10 (advanced).  You can add more generators at will.      */
-
-const concentricCircles: DrawFn = (
-  c, s, p, regions, svg, id, rng, complexity
-) => {
-  const rings = 2 + complexity;                          // 3–12 rings
+// Pattern Generators
+const concentricCircles: DrawFn = (c, s, p, regions, svg, id, rng, complexity) => {
+  const rings = 2 + complexity;
   const maxR = s * 0.4;
   for (let i = 0; i < rings; i++) {
     const r = maxR * (1 - i / rings);
@@ -57,27 +71,20 @@ const concentricCircles: DrawFn = (
     regions.push({
       id: regId,
       color,
-      path:
-        `M ${c - r} ${c} A ${r} ${r} 0 1 1 ${c + r} ${c} ` +
-        `A ${r} ${r} 0 1 1 ${c - r} ${c} Z`,
+      path: `M ${c - r} ${c} A ${r} ${r} 0 1 1 ${c + r} ${c} A ${r} ${r} 0 1 1 ${c - r} ${c} Z`,
     });
-    svg.push(
-      `<circle id="${regId}" cx="${c}" cy="${c}" r="${r}" ` +
-      `fill="${color}" stroke="#222" stroke-width="2"/>`
-    );
+    svg.push(`<circle id="${regId}" cx="${c}" cy="${c}" r="${r}" fill="${color}" stroke="#222" stroke-width="2"/>`);
   }
   return id + rings;
 };
 
-const radialPolygons: DrawFn = (
-  c, s, p, regions, svg, id, rng, complexity
-) => {
-  const layers = 1 + Math.ceil(complexity / 2);          // 2–6 layers
+const radialPolygons: DrawFn = (c, s, p, regions, svg, id, rng, complexity) => {
+  const layers = 1 + Math.ceil(complexity / 2);
   const maxR = s * 0.4;
   for (let layer = 0; layer < layers; layer++) {
     const rOuter = maxR * (1 - layer / (layers + 0.5));
     const rInner = rOuter * 0.5;
-    const points = 4 + complexity + layer;               // 5–20 pts
+    const points = 4 + complexity + layer;
     const color = p[layer % p.length];
     const regId = `region-${id + layer}`;
     let path = '';
@@ -90,18 +97,13 @@ const radialPolygons: DrawFn = (
     }
     path += ' Z';
     regions.push({ id: regId, color, path });
-    svg.push(
-      `<path id="${regId}" d="${path}" fill="${color}" ` +
-      `stroke="#222" stroke-width="2"/>`
-    );
+    svg.push(`<path id="${regId}" d="${path}" fill="${color}" stroke="#222" stroke-width="2"/>`);
   }
   return id + layers;
 };
 
-const petalFlower: DrawFn = (
-  c, s, p, regions, svg, id, rng, complexity
-) => {
-  const petals = 4 + complexity;                         // 5–14 petals
+const petalFlower: DrawFn = (c, s, p, regions, svg, id, rng, complexity) => {
+  const petals = 4 + complexity;
   const rOuter = s * 0.4;
   const rPetal = rOuter * 0.5;
   for (let i = 0; i < petals; i++) {
@@ -109,87 +111,400 @@ const petalFlower: DrawFn = (
     const px = c + rOuter * Math.cos(ang);
     const py = c + rOuter * Math.sin(ang);
     const regId = `region-${id + i}`;
-    const path =
-      `M ${px} ${py} ` +
-      `a ${rPetal} ${rPetal * 0.6} ${ang * 180 / Math.PI} 1 1 ` +
-      `${-2 * rPetal * Math.cos(ang)} ${-2 * rPetal * Math.sin(ang)} Z`;
+    const path = `M ${px} ${py} a ${rPetal} ${rPetal * 0.6} ${ang * 180 / Math.PI} 1 1 ${-2 * rPetal * Math.cos(ang)} ${-2 * rPetal * Math.sin(ang)} Z`;
     regions.push({ id: regId, color: p[i % p.length], path });
-    svg.push(
-      `<path id="${regId}" d="${path}" fill="${p[i % p.length]}" ` +
-      `stroke="#222" stroke-width="2"/>`
-    );
+    svg.push(`<path id="${regId}" d="${path}" fill="${p[i % p.length]}" stroke="#222" stroke-width="2"/>`);
   }
   return id + petals;
 };
 
-/* ---------- difficulty configuration ----------------------------------- */
-const difficultyMap: Record<
-  MandalaSettings['difficulty'],
-  { complexityRange: [number, number]; generators: DrawFn[] }
-> = {
+const geometricShapes: DrawFn = (c, s, p, regions, svg, id, rng, complexity) => {
+  const shapes = 2 + complexity;
+  const maxR = s * 0.4;
+  for (let i = 0; i < shapes; i++) {
+    const r = maxR * (1 - i / (shapes + 1));
+    const sides = 3 + (complexity + i) % 5; // 3-8 sides
+    const color = p[i % p.length];
+    const regId = `region-${id + i}`;
+    let path = '';
+    for (let j = 0; j < sides; j++) {
+      const ang = (j * 2 * Math.PI) / sides - Math.PI / 2;
+      const x = c + r * Math.cos(ang);
+      const y = c + r * Math.sin(ang);
+      path += j === 0 ? `M ${x} ${y}` : ` L ${x} ${y}`;
+    }
+    path += ' Z';
+    regions.push({ id: regId, color, path });
+    svg.push(`<path id="${regId}" d="${path}" fill="${color}" stroke="#222" stroke-width="2"/>`);
+  }
+  return id + shapes;
+};
+
+// Difficulty Configuration
+const difficultyMap: Record<MandalaSettings['difficulty'], { complexityRange: [number, number]; generators: DrawFn[] }> = {
   beginner: {
     complexityRange: [1, 3],
-    generators: [concentricCircles, petalFlower],
+    generators: [concentricCircles, geometricShapes],
   },
   intermediate: {
     complexityRange: [3, 6],
-    generators: [concentricCircles, radialPolygons, petalFlower],
+    generators: [concentricCircles, radialPolygons, petalFlower, geometricShapes],
   },
   advanced: {
     complexityRange: [6, 10],
-    generators: [concentricCircles, radialPolygons, petalFlower],
+    generators: [concentricCircles, radialPolygons, petalFlower, geometricShapes],
   },
 };
 
-/* ---------- main class -------------------------------------------------- */
-export class MandalaGenerator {
+// Enhanced Mandala Generator
+class MandalaGenerator {
   private rng: SeededRandom;
   constructor(private settings: MandalaSettings) {
     this.rng = new SeededRandom(settings.seed);
   }
 
-  generate(): {
-    coloredSvg: string;
-    outlineSvg: string;
-    regions: RegionSpec[];
-  } {
+  generate(): { coloredSvg: string; outlineSvg: string; regions: RegionSpec[]; } {
     const { canvasSize, palette, difficulty } = this.settings;
     const center = canvasSize / 2;
     const regions: RegionSpec[] = [];
     const svgParts: string[] = [];
 
-    /* ----- pick generator & complexity --------------------------------- */
     const cfg = difficultyMap[difficulty];
     const generator = this.rng.choice(cfg.generators);
-    const complexity = this.rng.int(
-      cfg.complexityRange[0],
-      cfg.complexityRange[1]
-    );
+    const complexity = this.rng.int(cfg.complexityRange[0], cfg.complexityRange[1]);
 
-    /* ----- draw -------------------------------------------------------- */
-    generator(
-      center,
-      canvasSize,
-      palette,
-      regions,
-      svgParts,
-      0,
-      this.rng,
-      complexity
-    );
+    generator(center, canvasSize, palette, regions, svgParts, 0, this.rng, complexity);
 
-    /* ----- assemble ---------------------------------------------------- */
-    const coloredSvg =
-      `<svg width="${canvasSize}" height="${canvasSize}" ` +
-      `viewBox="0 0 ${canvasSize} ${canvasSize}" ` +
-      `xmlns="http://www.w3.org/2000/svg">\n` +
-      svgParts.join('\n') +
-      `\n</svg>`;
-
-    const outlineSvg = coloredSvg
-      .replace(/fill="[^"]*"/g, 'fill="none"')
-      .replace(/stroke="#222"/g, 'stroke="#000"');
+    const coloredSvg = `<svg width="${canvasSize}" height="${canvasSize}" viewBox="0 0 ${canvasSize} ${canvasSize}" xmlns="http://www.w3.org/2000/svg">\n${svgParts.join('\n')}\n</svg>`;
+    const outlineSvg = coloredSvg.replace(/fill="[^"]*"/g, 'fill="none"').replace(/stroke="#222"/g, 'stroke="#000"');
 
     return { coloredSvg, outlineSvg, regions };
   }
+}
+
+// Palettes
+const PALETTES = {
+  Primary: ['#E53935', '#1E88E5', '#FDD835', '#43A047', '#8E24AA'],
+  Bold: ['#FF5722', '#03A9F4', '#FFC107', '#4CAF50', '#673AB7', '#FFEB3B'],
+  Pastel: ['#F48FB1', '#81D4FA', '#FFF59D', '#A5D6A7', '#CE93D8'],
+  HighContrast: ['#D32F2F', '#1976D2', '#FBC02D', '#388E3C', '#000000', '#FFFFFF']
+};
+
+// Main App Component
+export default function MandalaMemoryTrainer() {
+  // Game settings
+  const [gameSettings, setGameSettings] = useState<GameSettings>({
+    exposureTime: 15,
+    roundCount: 10,
+    showCountdown: true,
+    difficulty: 'beginner',
+    colorCount: 3,
+    palette: PALETTES.Primary.slice(0, 3)
+  });
+
+  // Mandala settings
+  const [mandalaSettings, setMandalaSettings] = useState<MandalaSettings>({
+    difficulty: 'beginner',
+    palette: PALETTES.Primary.slice(0, 3),
+    seed: Date.now().toString(),
+    canvasSize: 400
+  });
+
+  // Game state
+  const [gameState, setGameState] = useState<GameState>({
+    phase: 'idle',
+    round: 0,
+    score: 0,
+    currentSeed: '',
+    timeRemaining: 0
+  });
+
+  const [currentMandala, setCurrentMandala] = useState<{
+    coloredSvg: string;
+    outlineSvg: string;
+    regions: RegionSpec[];
+  } | null>(null);
+
+  const timerRef = useRef<number>();
+
+  // Generate mandala
+  const generateMandala = () => {
+    const generator = new MandalaGenerator(mandalaSettings);
+    const mandala = generator.generate();
+    setCurrentMandala(mandala);
+  };
+
+  useEffect(() => {
+    generateMandala();
+  }, [mandalaSettings]);
+
+  // Update difficulty
+  const updateDifficulty = (difficulty: 'beginner' | 'intermediate' | 'advanced') => {
+    setMandalaSettings(prev => ({ ...prev, difficulty }));
+    setGameSettings(prev => ({ ...prev, difficulty }));
+    setTimeout(() => {
+      setMandalaSettings(prev => ({ ...prev, seed: Date.now().toString() }));
+    }, 100);
+  };
+
+  // Start game
+  const startGame = () => {
+    const newSeed = Date.now().toString();
+    setMandalaSettings(prev => ({ ...prev, seed: newSeed }));
+    setGameState({
+      phase: 'showing',
+      round: 1,
+      score: 0,
+      currentSeed: newSeed,
+      timeRemaining: gameSettings.exposureTime
+    });
+    startTimer();
+  };
+
+  // Timer logic
+  const startTimer = () => {
+    const startTime = Date.now();
+    const duration = gameSettings.exposureTime * 1000;
+
+    const tick = () => {
+      const elapsed = Date.now() - startTime;
+      const remaining = Math.max(0, duration - elapsed);
+      
+      setGameState(prev => ({ ...prev, timeRemaining: remaining / 1000 }));
+
+      if (remaining <= 0) {
+        setGameState(prev => ({ ...prev, phase: 'waiting' }));
+      } else {
+        timerRef.current = requestAnimationFrame(tick);
+      }
+    };
+
+    timerRef.current = requestAnimationFrame(tick);
+  };
+
+  // Next round
+  const nextRound = () => {
+    if (gameState.round >= gameSettings.roundCount) {
+      setGameState(prev => ({ ...prev, phase: 'finished' }));
+      return;
+    }
+
+    const newSeed = Date.now().toString();
+    setMandalaSettings(prev => ({ ...prev, seed: newSeed }));
+    setGameState(prev => ({
+      ...prev,
+      phase: 'showing',
+      round: prev.round + 1,
+      currentSeed: newSeed,
+      timeRemaining: gameSettings.exposureTime
+    }));
+    startTimer();
+  };
+
+  // Cleanup timer
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        cancelAnimationFrame(timerRef.current);
+      }
+    };
+  }, []);
+
+  return (
+    <div className="min-h-screen bg-gray-100 p-4">
+      <div className="max-w-7xl mx-auto">
+        <header className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-gray-800 mb-2">Mandala Memory Trainer</h1>
+          <p className="text-gray-600">Train your visual memory with beautiful symmetric patterns</p>
+        </header>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Settings Panel */}
+          <div className="bg-white rounded-lg shadow-lg p-6">
+            <h2 className="text-xl font-semibold mb-4 flex items-center">
+              <Settings className="mr-2" size={20} />
+              Settings
+            </h2>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Difficulty</label>
+                <select
+                  value={gameSettings.difficulty}
+                  onChange={(e) => updateDifficulty(e.target.value as any)}
+                  className="w-full p-2 border rounded-md"
+                >
+                  <option value="beginner">Beginner</option>
+                  <option value="intermediate">Intermediate</option>
+                  <option value="advanced">Advanced</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Exposure Time</label>
+                <select
+                  value={gameSettings.exposureTime}
+                  onChange={(e) => setGameSettings(prev => ({ 
+                    ...prev, 
+                    exposureTime: parseInt(e.target.value) 
+                  }))}
+                  className="w-full p-2 border rounded-md"
+                >
+                  <option value={60}>60 seconds</option>
+                  <option value={30}>30 seconds</option>
+                  <option value={15}>15 seconds</option>
+                  <option value={10}>10 seconds</option>
+                  <option value={8}>8 seconds</option>
+                  <option value={5}>5 seconds</option>
+                  <option value={3}>3 seconds</option>
+                  <option value={2}>2 seconds</option>
+                </select>
+              </div>
+
+              <button
+                onClick={() => setMandalaSettings(prev => ({ 
+                  ...prev, 
+                  seed: Date.now().toString() 
+                }))}
+                className="w-full bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 flex items-center justify-center"
+              >
+                <RefreshCw size={16} className="mr-2" />
+                New Design
+              </button>
+            </div>
+          </div>
+
+          {/* Canvas Area */}
+          <div className="lg:col-span-2 bg-white rounded-lg shadow-lg">
+            <div className="p-6">
+              {currentMandala && (
+                <div className="flex flex-col items-center">
+                  {gameState.phase === 'idle' && (
+                    <div className="text-center">
+                      <p className="text-gray-600 mb-4">Ready to start memory training?</p>
+                      <p className="text-sm text-gray-500 mb-6">
+                        Look at the colored image, then use your crayons to color the outline!
+                      </p>
+                      <button
+                        onClick={startGame}
+                        className="bg-green-500 text-white py-3 px-6 rounded-md hover:bg-green-600 flex items-center"
+                      >
+                        <Play size={20} className="mr-2" />
+                        Start Memory Game
+                      </button>
+                    </div>
+                  )}
+
+                  {gameState.phase === 'showing' && (
+                    <div className="text-center">
+                      <div className="mb-4">
+                        <div className="text-3xl font-bold text-blue-600 mb-2">
+                          {Math.ceil(gameState.timeRemaining)}s
+                        </div>
+                        <div className="text-lg font-medium text-gray-700 mb-1">
+                          Remember this pattern!
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          Round {gameState.round} of {gameSettings.roundCount}
+                        </div>
+                      </div>
+                      <div dangerouslySetInnerHTML={{ __html: currentMandala.coloredSvg }} />
+                    </div>
+                  )}
+
+                  {gameState.phase === 'waiting' && (
+                    <div className="text-center">
+                      <div className="mb-6">
+                        <h3 className="text-xl font-semibold mb-3">Time's up!</h3>
+                        <p className="text-gray-600 mb-4">
+                          Now color the outline with your crayons from memory.
+                        </p>
+                        <p className="text-sm text-gray-500 mb-6">
+                          Click the button below when you want to see the original again.
+                        </p>
+                      </div>
+                      
+                      <div className="flex justify-center mb-6">
+                        <div dangerouslySetInnerHTML={{ __html: currentMandala.outlineSvg }} />
+                      </div>
+
+                      <div className="space-y-3">
+                        <button
+                          onClick={() => setGameState(prev => ({ ...prev, phase: 'revealing' }))}
+                          className="bg-blue-500 text-white py-2 px-6 rounded-md hover:bg-blue-600 mr-4"
+                        >
+                          Show Original Image
+                        </button>
+                        <button
+                          onClick={nextRound}
+                          className="bg-green-500 text-white py-2 px-6 rounded-md hover:bg-green-600"
+                        >
+                          Next Round
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {gameState.phase === 'revealing' && (
+                    <div className="text-center">
+                      <div className="mb-4">
+                        <h3 className="text-xl font-semibold mb-3">Here's the original!</h3>
+                        <p className="text-sm text-gray-600 mb-4">
+                          Compare with your colored version
+                        </p>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                        <div>
+                          <h4 className="font-medium mb-2">Original (Colored)</h4>
+                          <div dangerouslySetInnerHTML={{ __html: currentMandala.coloredSvg }} />
+                        </div>
+                        <div>
+                          <h4 className="font-medium mb-2">Your Outline</h4>
+                          <div dangerouslySetInnerHTML={{ __html: currentMandala.outlineSvg }} />
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        <button
+                          onClick={() => setGameState(prev => ({ ...prev, phase: 'waiting' }))}
+                          className="bg-gray-500 text-white py-2 px-6 rounded-md hover:bg-gray-600 mr-4"
+                        >
+                          Hide Original
+                        </button>
+                        <button
+                          onClick={nextRound}
+                          className="bg-green-500 text-white py-2 px-6 rounded-md hover:bg-green-600"
+                        >
+                          Next Round
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {gameState.phase === 'finished' && (
+                    <div className="text-center">
+                      <h3 className="text-2xl font-bold mb-4">Game Complete! 🎉</h3>
+                      <p className="text-lg text-gray-700 mb-6">
+                        Great job training your memory!
+                      </p>
+                      <div className="text-sm text-gray-600 mb-6">
+                        Completed {gameSettings.roundCount} rounds
+                      </div>
+                      <button
+                        onClick={() => setGameState(prev => ({ ...prev, phase: 'idle', round: 0 }))}
+                        className="bg-blue-500 text-white py-3 px-6 rounded-md hover:bg-blue-600"
+                      >
+                        Play Again
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
