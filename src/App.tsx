@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Timer, Palette, Play, Square, Download, RefreshCw, Settings } from 'lucide-react';
 
+
 // Seeded Random Generator
 class SeededRandom {
   private seed: number;
