@@ -464,7 +464,7 @@ export default function MandalaMemoryTrainer() {
       <div className="max-w-7xl mx-auto">
         <header className="text-center mb-8">
           <h1 className="text-4xl font-bold text-gray-800 mb-2">Mandala Memory Trainer</h1>
-          <p className="text-gray-600">Train your visual memory with beautiful symmetric patterns</p>
+          <p className="text-gray-600">Train your visual memory</p>
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
